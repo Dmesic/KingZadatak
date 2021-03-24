@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="https://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Pretraga</title>
+</head>
+<style>
+    table, th, td {
+        border: 1px solid black;
+    }
+
+    th, td {
+        padding: 10px;
+    }
+</style>
+<body>
+    <form action="#" th:action="@{/pretraga}" th:object="${pretraga}" method="post" th:align="center">
+        <p>Broj putnika: <select th:field="*{brojPutnika}"/></p>
+        <option th:each="i : ${#numbers.sequence(1, 9)}" th:value="${i}" th:text="${i}">
+        </option>
+        </select>
+        <p>Sifra polaznog aerodroma: <input type="text" th:field="*{sifraPolaznogAerodroma}" /></p>
+        <p>Sifra odredisnjeg aerodroma: <input type="text" th:field="*{sifraOdredisnjegAerodroma}" /></p>
+        <p>Datum polaska: <input type="date" th:field="*{datumPolaska}" /></p>
+        <p>Datum dolaska: <input type="date" th:field="*{datumDolaska}" /></p>
+        <p>Odaberite valutu: <select th:field="*{sifraValute}"/></p>
+        <option th:value="'EUR'" th:text="EUR"></option>
+        <option th:value="'USD'" th:text="USD"></option>
+        <option th:value="'HRK'" th:text="HRK"></option>
+        </select>
+        <p th:text="'Provjera: ' + ${provjera}" />
+        <p><input type="submit" value="Submit" /></p>
+        </form>
+
+    <table border="1" align="center">
+        <thead>
+        <tr>
+            <th>Polazni aerodrom</th>
+            <th>Odredisnji aerodrom</th>
+            <th>Vrijeme polaska</th>
+            <th>Vrijeme dolaska</th>
+            <th>Broj presjedanja</th>
+            <th>Broj putnika</th>
+            <th>Ukupna cijena</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="tempLet : ${listaLetova}">
+            <td th:text="${tempLet.polazniAerodrom}"/>
+            <td th:text="${tempLet.odredisnjiAerodrom}"/>
+            <td th:text="${tempLet.vrijemePolaska}"/>
+            <td th:text="${tempLet.vrijemeDolaska}"/>
+            <td th:text="${tempLet.brojPresjedanja}"/>
+            <td th:text="${tempLet.brojPutnika}"/>
+            <td th:text="${tempLet.ukupnaCijena}"/>
+        </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>
