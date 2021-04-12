@@ -1,9 +1,5 @@
 package com.example.ispis;
 
-import com.amadeus.Amadeus;
-import com.amadeus.Params;
-import com.amadeus.Response;
-import com.amadeus.exceptions.ResponseException;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.RandomStringUtils;
@@ -13,10 +9,14 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-
+import org.json.JSONArray;
+import org.json.JSONObject;
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.JsonNode;
+import com.mashape.unirest.http.Unirest;
+import com.mashape.unirest.http.exceptions.UnirestException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 @Controller
@@ -35,13 +35,14 @@ public class DemoController {
     }
 
     @PostMapping("/pretraga")
-    public String pretragaSubmit(@ModelAttribute PretragaLetova pretragaLetova, Model model) throws ResponseException {
+    public String pretragaSubmit(@ModelAttribute PretragaLetova pretragaLetova, Model model) throws UnirestException {
 
         model.addAttribute("pretraga", pretragaLetova);
 
         String tempString ="";
 
         Gson gson = new Gson();
+
         int brojPutnika = pretragaLetova.getBrojPutnika();
         String sifraPolaznogAerodroma = pretragaLetova.getSifraPolaznogAerodroma();
         String sifraOdredisnjegAerodroma = pretragaLetova.getSifraOdredisnjegAerodroma();
@@ -69,27 +70,41 @@ public class DemoController {
         }
         else {
 
-
             tempString= "ne postoji";
 
             String generatedString = RandomStringUtils.randomAlphabetic(6);
             model.addAttribute("generatedString", generatedString);
 
-            Amadeus amadeus = Amadeus
-                    .builder("WYoPou1e4ItOYbA7bff4nxlbSAbdk1j4", "o08RnsblBHlOr7g8")
-                    .build();
+            // ====================== POCETAK NOVOG =========================
 
-            Response response = amadeus.get("/v2/shopping/flight-offers",
-                    Params.with("originLocationCode", sifraPolaznogAerodroma)
-                            .and("destinationLocationCode", sifraOdredisnjegAerodroma)
-                            .and("departureDate", datumPolaska)
-                            .and("returnDate", datumDolaska)
-                            .and("adults", brojPutnika)
-                            .and("currencyCode", sifraValute)
-                            .and("max", max));
+            HttpResponse<JsonNode> httpResponse = Unirest.post("https://test.api.amadeus.com/v1/security/oauth2/token")
+                    .header("content-type", "application/x-www-form-urlencoded")
+                    .body("grant_type=client_credentials&client_id=sPYacOMUn6UyK6yKO6xbUgqTtuPSZ9Kq&client_secret=04Z6LoOdaZ7vweYV")
+                    .asJson();
 
-            Type flightListType = new TypeToken<ArrayList<Data>>(){}.getType();
-            ArrayList<Data> dataArrayList = gson.fromJson(response.getData(), flightListType);
+            String access_token = (String) httpResponse.getBody().getObject().get("access_token");
+
+            HttpResponse<JsonNode> response =
+                    Unirest.get("https://test.api.amadeus.com/v2/shopping/flight-offers?" +
+                            "originLocationCode="+ sifraPolaznogAerodroma +
+                            "&destinationLocationCode="+ sifraOdredisnjegAerodroma +
+                            "&departureDate="+ datumPolaska +
+                            "&returnDate="+ datumDolaska +
+                            "&adults="+ brojPutnika +
+                            "&max="+ max +
+                            "&currencyCode=" + sifraValute)
+                            .header("content-type", "application/json")
+                            .header("authorization", "Bearer " + access_token)
+                            .asJson();
+
+            JSONObject jsonObjectData = new JSONObject(response.getBody());
+
+            JSONArray jsonArrayData = jsonObjectData.getJSONArray("array");
+
+            Type flightListType = new TypeToken<ArrayList<ArrayDTO>>() {}.getType();
+            ArrayList<ArrayDTO> arrayDTOArrayList = gson.fromJson(String.valueOf(jsonArrayData), flightListType);
+
+            // ====================== KRAJ NOVOG =========================
 
             PretragaLetova temp2 = new PretragaLetova(pretragaLetova.getBrojPutnika(),pretragaLetova.getSifraPolaznogAerodroma(),
                     pretragaLetova.getSifraOdredisnjegAerodroma(), pretragaLetova.getDatumPolaska(), pretragaLetova.getDatumDolaska(),
@@ -97,18 +112,18 @@ public class DemoController {
 
             pretragaLetovaRepository.save(temp2);
 
-            for (Data data : dataArrayList){
-                for (Itinerary itinerary: data.getItineraries()){
-                    for (Segment segment: itinerary.getSegments()){
-                        LetoviPonuda temp = new LetoviPonuda(segment.getDeparture().getIataCode(),segment.getArrival().getIataCode(),
-                                segment.getDeparture().getAt(), segment.getArrival().getAt(),
-                                segment.getNumberOfStops(),brojPutnika,
-                                data.getPrice().getGrandTotal()+" "+data.getPrice().getCurrency(),generatedString);
-                        listaPonuda.add(temp);
-                        ponudaLetovaRepository.save(temp);
+                for (Data data : arrayDTOArrayList.get(0).getData()){
+                    for (Itinerary itinerary: data.getItineraries()){
+                        for (Segment segment: itinerary.getSegments()){
+                            LetoviPonuda temp = new LetoviPonuda(segment.getDeparture().getIataCode(),segment.getArrival().getIataCode(),
+                                    segment.getDeparture().getAt(), segment.getArrival().getAt(),
+                                    segment.getNumberOfStops(),brojPutnika,
+                                    data.getPrice().getGrandTotal()+" "+data.getPrice().getCurrency(),generatedString);
+                            listaPonuda.add(temp);
+                            ponudaLetovaRepository.save(temp);
+                        }
                     }
                 }
-            }
 
             model.addAttribute("listaLetova",listaPonuda);
         }
